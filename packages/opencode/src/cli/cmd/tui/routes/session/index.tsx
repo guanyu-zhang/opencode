@@ -46,6 +46,8 @@ import type { WebFetchTool } from "@/tool/webfetch"
 import type { TaskTool } from "@/tool/task"
 import type { QuestionTool } from "@/tool/question"
 import type { SkillTool } from "@/tool/skill"
+import type { A2UITool } from "@/tool/a2ui"
+import { A2UIDialog } from "@tui/component/a2ui-dialog"
 import { useKeyboard, useRenderer, useTerminalDimensions, type JSX } from "@opentui/solid"
 import { useSDK } from "@tui/context/sdk"
 import { useCommandDialog } from "@tui/component/dialog-command"
@@ -101,6 +103,7 @@ const context = createContext<{
   showTimestamps: () => boolean
   showDetails: () => boolean
   showGenericToolOutput: () => boolean
+  a2ui: () => boolean
   diffWrapMode: () => "word" | "none"
   sync: ReturnType<typeof useSync>
   tui: ReturnType<typeof useTuiConfig>
@@ -157,6 +160,7 @@ export function Session() {
   const [diffWrapMode] = kv.signal<"word" | "none">("diff_wrap_mode", "word")
   const [animationsEnabled, setAnimationsEnabled] = kv.signal("animations_enabled", true)
   const [showGenericToolOutput, setShowGenericToolOutput] = kv.signal("generic_tool_output_visibility", false)
+  const [a2uiEnabled, setA2uiEnabled] = kv.signal("a2ui_enabled", true)
 
   const wide = createMemo(() => dimensions().width > 120)
   const sidebarVisible = createMemo(() => {
@@ -644,6 +648,18 @@ export function Session() {
       },
     },
     {
+      title: a2uiEnabled() ? "Disable A2UI interactive dialogs" : "Enable A2UI interactive dialogs",
+      value: "session.toggle.a2ui",
+      category: "Session",
+      slash: {
+        name: "a2ui",
+      },
+      onSelect: (dialog) => {
+        setA2uiEnabled((prev) => !prev)
+        dialog.clear()
+      },
+    },
+    {
       title: "Page up",
       value: "session.page.up",
       keybind: "messages_page_up",
@@ -1029,6 +1045,7 @@ export function Session() {
         showTimestamps,
         showDetails,
         showGenericToolOutput,
+        a2ui: a2uiEnabled,
         diffWrapMode,
         sync,
         tui: tuiConfig,
@@ -1558,6 +1575,9 @@ function ToolPart(props: { last: boolean; part: ToolPart; message: AssistantMess
         </Match>
         <Match when={props.part.tool === "skill"}>
           <Skill {...toolprops} />
+        </Match>
+        <Match when={props.part.tool === "a2ui_choice"}>
+          <A2UIChoice {...toolprops} />
         </Match>
         <Match when={true}>
           <GenericTool {...toolprops} />
@@ -2200,6 +2220,40 @@ function Skill(props: ToolProps<typeof SkillTool>) {
   return (
     <InlineTool icon="→" pending="Loading skill..." complete={props.input.name} part={props.part}>
       Skill "{props.input.name}"
+    </InlineTool>
+  )
+}
+
+function A2UIChoice(props: ToolProps<typeof A2UITool>) {
+  const ctx = use()
+  const dialog = useDialog()
+  const promptRef = usePromptRef()
+  const labels = createMemo(() => props.metadata.buttonLabels ?? [])
+  const surface = createMemo(() => props.metadata.surface)
+  const [shown, setShown] = createSignal(false)
+
+  createEffect(
+    on(
+      () => props.output,
+      (output) => {
+        if (!output || shown() || !ctx.a2ui()) return
+        const s = surface()
+        if (!s) return
+        setShown(true)
+        A2UIDialog.show(dialog, s, (result) => {
+          const ref = promptRef.current
+          if (ref) {
+            ref.set({ input: result, parts: [] })
+            setTimeout(() => ref.submit(), 50)
+          }
+        })
+      },
+    ),
+  )
+
+  return (
+    <InlineTool icon="⬡" pending="Rendering choices..." complete={labels().length} part={props.part}>
+      A2UI: {labels().join(" | ")}
     </InlineTool>
   )
 }
