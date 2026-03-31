@@ -6,6 +6,11 @@ const ChoiceOption = z.object({
   value: z.string(),
 })
 
+const TabDef = z.object({
+  title: z.string(),
+  child: z.string(),
+})
+
 const Component = z.object({
   id: z.string(),
   type: z.string(),
@@ -23,6 +28,13 @@ const Component = z.object({
   max: z.number().optional(),
   gap: z.number().optional(),
   axis: z.string().optional(),
+  name: z.string().optional(),
+  tabs: z.array(TabDef).optional(),
+  trigger: z.string().optional(),
+  content: z.string().optional(),
+  enableDate: z.boolean().optional(),
+  enableTime: z.boolean().optional(),
+  direction: z.string().optional(),
 })
 
 const Surface = z.object({
@@ -47,7 +59,12 @@ COMPONENT TYPES:
 - CheckBox: boolean toggle. Props: "label", "value" (boolean)
 - ChoicePicker: select from options. Props: "label", "options" [{label,value}...], "value" (string[]), "variant" ("mutuallyExclusive"/"multipleSelection")
 - Slider: numeric range. Props: "label", "value" (number), "min", "max"
-- Divider: horizontal line
+- DateTimeInput: date/time input. Props: "label", "value" (ISO 8601 string), "enableDate" (bool), "enableTime" (bool)
+- Divider: horizontal separator. Props: "axis" ("horizontal"/"vertical")
+- Icon: display icon. Props: "name" (e.g. "check", "warning", "info", "star", "edit", "delete", "search", "settings", "home", "mail", "person", "lock", "favorite", "help", "error", "close", "add", "refresh")
+- List: scrollable list. Props: "children" [component IDs], "direction" ("vertical"/"horizontal")
+- Tabs: tabbed sections. Props: "tabs" [{title, child (component ID)}...]
+- Modal: overlay content. Props: "trigger" (component ID), "content" (component ID)
 - Card: bordered container. Props: "child" (component ID)
 - Column: vertical layout. Props: "children" [component IDs]
 - Row: horizontal layout. Props: "children" [component IDs]
