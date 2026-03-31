@@ -1,6 +1,6 @@
 import { TextAttributes, type InputRenderable } from "@opentui/core"
 import { useKeyboard, useTerminalDimensions } from "@opentui/solid"
-import { createMemo, For, Show } from "solid-js"
+import { createMemo, For, onMount, Show } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useTheme } from "../context/theme"
 import { useDialog, type DialogContext } from "../ui/dialog"
@@ -186,12 +186,16 @@ export function A2UIDialog(props: {
   })
   const items = initial.items
 
-  let inputRef: InputRenderable | undefined
+  const inputs = new Map<number, InputRenderable>()
 
   function refocus() {
+    for (const [idx, ref] of inputs) {
+      if (idx !== store.focus) ref.blur()
+    }
     const f = store.fields[store.focus]
     if (f?.type === "TextField" || f?.type === "DateTimeInput") {
-      setTimeout(() => inputRef?.focus(), 1)
+      const ref = inputs.get(store.focus)
+      if (ref) setTimeout(() => ref.focus(), 1)
     }
   }
 
@@ -209,6 +213,12 @@ export function A2UIDialog(props: {
     props.onSubmit(result)
   }
 
+  function onScroll() {
+    for (const ref of inputs.values()) ref.blur()
+  }
+
+  onMount(() => setTimeout(() => refocus(), 50))
+
   useKeyboard((evt) => {
     if (!store.fields.length) return
     const cur = store.fields[store.focus]
@@ -217,6 +227,8 @@ export function A2UIDialog(props: {
       if (evt.name === "escape") { dialog.clear(); evt.preventDefault(); return }
       if (evt.name === "tab" || evt.name === "down") { move(1); evt.preventDefault(); return }
       if (evt.name === "up") { move(-1); evt.preventDefault(); return }
+      const ref = inputs.get(store.focus)
+      if (ref && !ref.focused) ref.focus()
       return
     }
 
@@ -292,7 +304,7 @@ export function A2UIDialog(props: {
         </text>
       </box>
 
-      <scrollbox maxHeight={height()} scrollbarOptions={{ visible: false }}>
+      <scrollbox maxHeight={height()} scrollbarOptions={{ visible: false }} onMouseScroll={() => onScroll()}>
         <box gap={1}>
           <For each={items}>
             {(item) => (
@@ -311,9 +323,7 @@ export function A2UIDialog(props: {
                     field={store.fields[(item as any).index]}
                     focused={(item as any).index === store.focus}
                     onTextChange={(v) => setStore("fields", (item as any).index, "textValue", v)}
-                    inputRef={(r) => {
-                      if ((item as any).index === store.focus) inputRef = r
-                    }}
+                    inputRef={(r) => inputs.set((item as any).index, r)}
                   />
                 </Show>
               </>
